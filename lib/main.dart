@@ -36,6 +36,7 @@ class MyApp extends StatelessWidget {
         }
         final showSplashScreen = snapshot.data ?? true;
         return MaterialApp(
+          debugShowCheckedModeBanner: false,
           title: 'Chat App',
           theme: ThemeData(primarySwatch: Colors.blue),
           home: showSplashScreen ? const SplashScreen() : const LoginScreen(),
