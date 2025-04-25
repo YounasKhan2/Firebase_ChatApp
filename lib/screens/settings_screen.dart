@@ -156,37 +156,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        title: const Text(
+          'Settings',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.blueAccent, // Add color to the AppBar
+        elevation: 4, // Add shadow for a professional look
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: _pickImage,
+              Center(
                 child: CircleAvatar(
-                  radius: 50,
-                  backgroundImage:
-                      _profileImage != null
-                          ? FileImage(_profileImage!)
-                          : const AssetImage('assets/default_profile.png')
-                              as ImageProvider,
-                  child:
-                      _profileImage == null
-                          ? const Icon(
-                            Icons.person,
-                            size: 50,
-                            color: Colors.white,
-                          )
-                          : null,
+                  radius: 60,
+                  backgroundImage: const AssetImage(
+                    'assets/default_profile.png',
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    size: 60,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              const Text(
+                'Profile Information',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Username (Required)',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
                 ),
               ),
               const SizedBox(height: 16),
@@ -195,19 +203,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: const InputDecoration(
                   labelText: 'About (Optional)',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.info),
                 ),
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
                 onPressed: _updateProfile,
-                child: const Text('Update Profile'),
+                icon: const Icon(Icons.save),
+                label: const Text('Update Profile'),
               ),
-              const SizedBox(height: 16),
+              const Divider(height: 40, thickness: 1),
+              const Text(
+                'Change Password',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
               TextField(
                 controller: _currentPasswordController,
                 decoration: const InputDecoration(
                   labelText: 'Current Password',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
                 ),
                 obscureText: true,
               ),
@@ -217,6 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: const InputDecoration(
                   labelText: 'New Password',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
               ),
@@ -226,17 +243,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Confirm New Password',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
                 onPressed: _updatePassword,
-                child: const Text('Update Password'),
+                icon: const Icon(Icons.update),
+                label: const Text('Update Password'),
               ),
-              ElevatedButton(
+              const Divider(height: 40, thickness: 1),
+              ElevatedButton.icon(
                 onPressed: _signOut,
-                child: const Text('Sign Out'),
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign Out'),
               ),
             ],
           ),
@@ -252,6 +273,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: 'Settings',
           ),
         ],
+        selectedItemColor: Colors.blueAccent, // Highlight selected item
+        unselectedItemColor: Colors.grey, // Dim unselected items
       ),
     );
   }

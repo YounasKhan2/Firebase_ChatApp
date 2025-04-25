@@ -29,7 +29,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        title: const Text(
+          'Chat',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.blueAccent, // Add color to the AppBar
+        elevation: 4, // Add shadow for a professional look
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('users').snapshots(),
         builder: (ctx, snapshot) {
@@ -38,18 +45,37 @@ class _ChatScreenState extends State<ChatScreen> {
           }
           final users =
               snapshot.data!.docs
-                  .where(
-                    (user) => user.id != currentUser?.uid,
-                  ) // Exclude current user
+                  .where((user) => user.id != currentUser?.uid)
                   .toList();
           return ListView.separated(
             itemCount: users.length,
-            separatorBuilder: (ctx, index) => const Divider(),
+            separatorBuilder:
+                (ctx, index) => const Divider(
+                  thickness: 1,
+                  color: Colors.grey, // Add a subtle divider color
+                ),
             itemBuilder: (ctx, index) {
               final user = users[index];
               return ListTile(
-                title: Text(user['username']),
-                subtitle: Text(user['email']),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue[100],
+                  child: Text(
+                    user['username'][0].toUpperCase(),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                title: Text(
+                  user['username'],
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  user['email'],
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                trailing: const Icon(Icons.chat, color: Colors.blueAccent),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -76,6 +102,8 @@ class _ChatScreenState extends State<ChatScreen> {
             label: 'Settings',
           ),
         ],
+        selectedItemColor: Colors.blueAccent, // Highlight selected item
+        unselectedItemColor: Colors.grey, // Dim unselected items
       ),
     );
   }
