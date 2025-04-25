@@ -9,7 +9,6 @@ import 'screens/signup_screen.dart';
 import 'services/fcm_service.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Handle background messages
   print('Handling a background message: ${message.messageId}');
 }
 
@@ -17,12 +16,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // Configure FCM
+  // Register the background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Initialize FCM service
-  final fcmService = FCMService();
-  await fcmService.initialize();
 
   runApp(const MyApp());
 }

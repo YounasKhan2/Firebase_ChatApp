@@ -167,7 +167,8 @@ class _UserChatScreenState extends State<UserChatScreen> {
                       labelText: 'Type a message...',
                     ),
                     onTap: () {
-                      _messageFocusNode.requestFocus();
+                      _messageFocusNode
+                          .requestFocus(); // Ensure the keyboard opens
                     },
                   ),
                 ),
