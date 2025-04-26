@@ -503,8 +503,8 @@ class _UserChatScreenState extends State<UserChatScreen> {
   }
 
   Widget buildLocationMessage(Map<String, dynamic> data, bool isSender) {
-    return InkWell(
-      onTap: () => _openLocation(data['mapsUrl']),
+    return Align(
+      alignment: isSender ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
         padding: const EdgeInsets.all(10),
@@ -512,26 +512,34 @@ class _UserChatScreenState extends State<UserChatScreen> {
           color: isSender ? Colors.blue[100] : Colors.grey[300],
           borderRadius: BorderRadius.circular(10),
         ),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
-        ),
+        constraints: const BoxConstraints(maxWidth: 250), // Limit width
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // Adjust height dynamically
           children: [
+            if (!isSender)
+              Text(
+                data['senderUsername'] ?? 'Unknown',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            if (!isSender) const SizedBox(height: 5),
             Text(
-              data['senderUsername'] ?? 'Unknown',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              data['type'] == 'live_location' ? 'Live Location' : 'Location',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 5),
-            Text(
-              data['type'] == 'live_location' ? 'Live Location:' : 'Location:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const Text(
-              'Tap to open in Maps',
-              style: TextStyle(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
+            InkWell(
+              onTap: () => _openLocation(data['mapsUrl']),
+              child: const Text(
+                'Tap to open in Maps',
+                style: TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
