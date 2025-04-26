@@ -59,23 +59,40 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
             itemBuilder: (ctx, index) {
               final user = users[index];
+              final userData =
+                  user.data()
+                      as Map<
+                        String,
+                        dynamic
+                      >; // Explicitly cast to Map<String, dynamic>
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.blue[100],
-                  child: Text(
-                    user['username'][0].toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  backgroundImage:
+                      userData.containsKey('profileImageUrl') &&
+                              userData['profileImageUrl'] != null &&
+                              userData['profileImageUrl'].isNotEmpty
+                          ? NetworkImage(userData['profileImageUrl'])
+                          : null,
+                  child:
+                      !userData.containsKey('profileImageUrl') ||
+                              userData['profileImageUrl'] == null ||
+                              userData['profileImageUrl'].isEmpty
+                          ? Text(
+                            userData['username'][0].toUpperCase(),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          )
+                          : null,
                 ),
                 title: Text(
-                  user['username'],
+                  userData['username'],
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 subtitle: Text(
-                  user['email'],
+                  userData['email'],
                   style: const TextStyle(color: Colors.grey),
                 ),
                 trailing: const Icon(Icons.chat, color: Colors.blueAccent),
@@ -85,7 +102,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       builder:
                           (ctx) => UserChatScreen(
                             userId: user.id,
-                            username: user['username'],
+                            username: userData['username'],
                           ),
                     ),
                   );

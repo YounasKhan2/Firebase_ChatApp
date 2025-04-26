@@ -44,8 +44,9 @@ dependencies:
   shared_preferences:
   path_provider: ^2.0.11 # Add path_provider dependency
   dio: ^5.2.1 # Add dio dependency
-  cloudinary: ^1.2.0 # Add cloudinary dependency
+  cloudinary: ^1.2.0 # Ensure this dependency is added
   video_player: ^2.5.1 # Add video_player dependency
+  flutter_image_compress: 2.4.0
 
 dev_dependencies:
   flutter_test:

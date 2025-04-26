@@ -37,6 +37,8 @@ class _SignupScreenState extends State<SignupScreen> {
         'username': _usernameController.text.trim(),
         'phone': _phoneController.text.trim(),
         'createdAt': Timestamp.now(),
+        'profileImageUrl': '', // Initialize empty
+        'about': '', // Initialize empty
       });
       Navigator.of(context).pushReplacementNamed(ChatScreen.routeName);
     } catch (error) {

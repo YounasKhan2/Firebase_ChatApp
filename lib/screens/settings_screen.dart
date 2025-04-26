@@ -1,13 +1,13 @@
-//settings_screen.dart
-// This file defines the SettingsScreen widget, which allows users to update their profile information and change their password in the chat application.
-// It includes a bottom navigation bar for navigating to the chat screen and a form for updating user details.
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
-import 'login_screen.dart'; // Added import for LoginScreen
+import 'login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:cloudinary/cloudinary.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,7 +17,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  int _selectedIndex = 1; // Default to the Settings tab
+  int _selectedIndex = 1;
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
   final _nameController = TextEditingController();
@@ -26,6 +26,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   File? _profileImage;
+  String? _profileImageUrl;
+  bool _isUploading = false;
+
+  // Initialize Cloudinary once
+  final Cloudinary _cloudinary = Cloudinary.signedConfig(
+    apiKey: '879246687239675',
+    apiSecret: 'AYuy0vuey-Q9s8bQsFvXBOmhhiA',
+    cloudName: 'dwzwegpm4',
+  );
 
   @override
   void initState() {
@@ -38,20 +47,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (user == null) return;
 
     final userData = await _firestore.collection('users').doc(user.uid).get();
-    setState(() {
-      _nameController.text =
-          userData['username'] ?? ''; // Use 'username' from registration
-      _aboutController.text = userData['about'] ?? '';
-    });
+    if (mounted) {
+      setState(() {
+        _nameController.text = userData['username'] ?? '';
+        _aboutController.text = userData['about'] ?? '';
+        _profileImageUrl = userData['profileImageUrl'];
+      });
+    }
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
+  Future<File> _compressImage(File file) async {
+    final tempDir = await getTemporaryDirectory();
+    final path = tempDir.path;
+    final compressedFile = File(
+      '$path/img_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    )..writeAsBytesSync(
+      await FlutterImageCompress.compressWithFile(
+            file.absolute.path,
+            quality: 70,
+          ) ??
+          file.readAsBytesSync(),
+    );
+    return compressedFile;
+  }
+
+  Future<String?> _uploadToCloudinary(File image) async {
+    try {
+      final response = await _cloudinary.upload(
+        file: image.path,
+        resourceType: CloudinaryResourceType.image,
+        folder: 'profile_pictures',
+      );
+
+      if (response.isSuccessful) {
+        return response.secureUrl;
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload image')),
+          );
+        }
+        return null;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload error: ${e.toString()}')),
+        );
+      }
+      return null;
     }
   }
 
@@ -66,21 +110,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    final updates = {
-      'name': _nameController.text.trim(),
-      'about': _aboutController.text.trim(),
-    };
+    try {
+      setState(() => _isUploading = true);
 
-    if (_profileImage != null) {
-      // Upload profile image logic here (e.g., Firebase Storage)
-      updates['profileImageUrl'] =
-          'uploaded_image_url'; // Replace with actual upload logic
+      final updates = {
+        'username': _nameController.text.trim(),
+        'about': _aboutController.text.trim(),
+      };
+
+      if (_profileImage != null) {
+        final compressedImage = await _compressImage(_profileImage!);
+        final imageUrl = await _uploadToCloudinary(compressedImage);
+        if (imageUrl != null) {
+          updates['profileImageUrl'] = imageUrl;
+        }
+      }
+
+      await _firestore.collection('users').doc(user.uid).update(updates);
+
+      if (mounted) {
+        setState(() {
+          _profileImageUrl = updates['profileImageUrl'] ?? _profileImageUrl;
+          _isUploading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
     }
-
-    await _firestore.collection('users').doc(user.uid).update(updates);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully!')),
-    );
   }
 
   Future<bool> _validateCurrentPassword(String currentPassword) async {
@@ -130,6 +194,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final user = _auth.currentUser;
       if (user != null) {
         await user.updatePassword(_passwordController.text.trim());
+        _currentPasswordController.clear();
+        _passwordController.clear();
+        _confirmPasswordController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Password updated successfully!')),
         );
@@ -143,16 +210,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _signOut() async {
     await _auth.signOut();
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (ctx) => const LoginScreen()));
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (ctx) => const LoginScreen()),
+      );
+    }
   }
 
   void _onItemTapped(int index) {
-    if (index == 0) {
+    if (index == 0 && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (ctx) => const ChatScreen()),
       );
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _profileImage = File(pickedFile.path);
+          _isUploading = true;
+        });
+
+        // Immediately update profile to handle the upload
+        await _updateProfile();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
     }
   }
 
@@ -164,8 +257,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Settings',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.blueAccent, // Add color to the AppBar
-        elevation: 4, // Add shadow for a professional look
+        backgroundColor: Colors.blueAccent,
+        elevation: 4,
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -174,16 +267,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundImage: const AssetImage(
-                    'assets/default_profile.png',
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    size: 60,
-                    color: Colors.white,
-                  ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.blueAccent, width: 2),
+                      ),
+                      child:
+                          _isUploading
+                              ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.blueAccent,
+                                ),
+                              )
+                              : CircleAvatar(
+                                radius: 60,
+                                backgroundImage:
+                                    _profileImageUrl != null
+                                        ? NetworkImage(_profileImageUrl!)
+                                        : null,
+                                child:
+                                    _profileImageUrl == null
+                                        ? const Icon(
+                                          Icons.person,
+                                          size: 60,
+                                          color: Colors.white,
+                                        )
+                                        : null,
+                                // Only include onBackgroundImageError if backgroundImage is provided
+                                onBackgroundImageError:
+                                    _profileImageUrl != null
+                                        ? (_, __) => setState(
+                                          () => _profileImageUrl = null,
+                                        )
+                                        : null,
+                              ),
+                    ),
+                    Positioned(
+                      bottom: -5,
+                      right: -5,
+                      child: Material(
+                        shape: const CircleBorder(),
+                        color: Colors.blueAccent,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                          ),
+                          onPressed: _isUploading ? null : _pickImage,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -208,12 +347,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.info),
                 ),
+                maxLines: 3,
               ),
               const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: _updateProfile,
-                icon: const Icon(Icons.save),
-                label: const Text('Update Profile'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isUploading ? null : _updateProfile,
+                  icon: const Icon(Icons.save),
+                  label: const Text('Update Profile'),
+                ),
               ),
               const Divider(height: 40, thickness: 1),
               const Text(
@@ -251,16 +394,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 obscureText: true,
               ),
               const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: _updatePassword,
-                icon: const Icon(Icons.update),
-                label: const Text('Update Password'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _updatePassword,
+                  icon: const Icon(Icons.update),
+                  label: const Text('Update Password'),
+                ),
               ),
               const Divider(height: 40, thickness: 1),
-              ElevatedButton.icon(
-                onPressed: _signOut,
-                icon: const Icon(Icons.logout),
-                label: const Text('Sign Out'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _signOut,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign Out'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                  ),
+                ),
               ),
             ],
           ),
@@ -276,8 +428,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: 'Settings',
           ),
         ],
-        selectedItemColor: Colors.blueAccent, // Highlight selected item
-        unselectedItemColor: Colors.grey, // Dim unselected items
+        selectedItemColor: Colors.blueAccent,
+        unselectedItemColor: Colors.grey,
       ),
     );
   }
