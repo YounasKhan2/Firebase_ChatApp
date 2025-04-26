@@ -1,3 +1,6 @@
+//auth_screen.dart
+// This file defines the AuthScreen widget, which is the main screen for user authentication in the chat application.
+// It includes buttons for login and signup, and navigates to the respective screens when clicked.
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';

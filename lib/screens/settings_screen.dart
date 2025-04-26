@@ -1,3 +1,6 @@
+//settings_screen.dart
+// This file defines the SettingsScreen widget, which allows users to update their profile information and change their password in the chat application.
+// It includes a bottom navigation bar for navigating to the chat screen and a form for updating user details.
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
 import 'login_screen.dart'; // Added import for LoginScreen

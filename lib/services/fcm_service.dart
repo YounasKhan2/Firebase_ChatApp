@@ -1,3 +1,6 @@
+//fcm_service.dart
+// This file defines a service for handling Firebase Cloud Messaging (FCM) notifications in a Flutter application.
+// It includes methods for initializing FCM, requesting notification permissions, and handling incoming messages.
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 class FCMService {

@@ -1,3 +1,6 @@
+//splash_screen.dart
+// This file defines the SplashScreen widget, which is displayed when the app is launched.
+// It includes a logo and a title, and navigates to the LoginScreen after a delay of 3 seconds.
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 

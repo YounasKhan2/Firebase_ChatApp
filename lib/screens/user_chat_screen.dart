@@ -1,13 +1,13 @@
-import 'dart:io'; // Ensure this import is present
+import 'dart:async';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:geolocator_android/geolocator_android.dart'; // Ensure this import is present
 
 class UserChatScreen extends StatefulWidget {
   final String userId;
@@ -26,6 +26,8 @@ class UserChatScreen extends StatefulWidget {
 class _UserChatScreenState extends State<UserChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
+  Timer? _liveLocationTimer;
+  String? _lastLiveLocationMessageID;
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
@@ -45,14 +47,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
               .doc(currentUser.uid)
               .get();
 
-      if (!senderData.exists || senderData.data() == null) {
-        throw Exception('Sender data not found.');
-      }
-
       final senderUsername = senderData.data()!['username'];
-      if (senderUsername == null) {
-        throw Exception('Sender username is null.');
-      }
 
       await FirebaseFirestore.instance.collection('chats').add({
         'senderId': currentUser.uid,
@@ -85,54 +80,162 @@ class _UserChatScreenState extends State<UserChatScreen> {
 
   Future<void> _sendCurrentLocation() async {
     try {
-      debugPrint('Checking location permissions...');
-      await _checkAndRequestLocationPermission(); // Ensure permissions are granted
-
-      debugPrint('Fetching current location...');
+      await _checkAndRequestLocationPermission();
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      debugPrint(
-        'Location fetched: ${position.latitude}, ${position.longitude}',
-      );
-      final locationMessage = {
-        'senderId': FirebaseAuth.instance.currentUser?.uid,
-        'receiverId': widget.userId,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'timestamp': Timestamp.now(),
-        'senderUsername': widget.username,
-        'type': 'location',
-      };
+      final googleMapsUrl =
+          'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
 
-      debugPrint('Adding location message to Firestore...');
-      await FirebaseFirestore.instance.collection('chats').add(locationMessage);
-      debugPrint('Location message added to Firestore successfully.');
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No user is logged in.');
+      }
+
+      final senderData =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+
+      final senderUsername = senderData.data()!['username'];
+
+      await FirebaseFirestore.instance.collection('chats').add({
+        'senderId': currentUser.uid,
+        'receiverId': widget.userId,
+        'mapsUrl': googleMapsUrl,
+        'timestamp': Timestamp.now(),
+        'senderUsername': senderUsername,
+        'type': 'location',
+        'participants': [currentUser.uid, widget.userId],
+      });
     } catch (e) {
-      debugPrint('Error getting location: $e');
+      debugPrint('Error sending location: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to send location: ${e.toString()}')),
       );
     }
   }
 
+  void _openLocation(String url) async {
+    try {
+      if (await canLaunchUrlString(url)) {
+        await launchUrlString(url);
+      } else {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open location: ${e.toString()}')),
+      );
+    }
+  }
+
   Future<void> _sendLiveLocation() async {
-    // Logic to send live location updates for 1 hour
+    try {
+      await _checkAndRequestLocationPermission();
+
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception('No user is logged in.');
+      }
+
+      final senderData =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUser.uid)
+              .get();
+
+      final senderUsername = senderData.data()!['username'];
+
+      Position initialPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final initialMessage = await _sendLocationMessage(
+        initialPosition,
+        senderUsername,
+        isLive: true,
+      );
+      _lastLiveLocationMessageID = initialMessage.id;
+
+      _liveLocationTimer = Timer.periodic(const Duration(seconds: 10), (
+        timer,
+      ) async {
+        try {
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+
+          if (_lastLiveLocationMessageID != null) {
+            await FirebaseFirestore.instance
+                .collection('chats')
+                .doc(_lastLiveLocationMessageID)
+                .update({
+                  'mapsUrl':
+                      'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}',
+                  'timestamp': Timestamp.now(),
+                });
+          }
+        } catch (e) {
+          debugPrint("Error sending live location update: $e");
+        }
+      });
+
+      Future.delayed(const Duration(hours: 1), () {
+        _liveLocationTimer?.cancel();
+        _lastLiveLocationMessageID = null;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Live Location Sharing Ended.')),
+        );
+      });
+    } catch (e) {
+      debugPrint('Error initiating live location: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to share live location: ${e.toString()}'),
+        ),
+      );
+    }
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>> _sendLocationMessage(
+    Position position,
+    String senderUsername, {
+    bool isLive = false,
+  }) async {
+    final googleMapsUrl =
+        'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
+
+    return FirebaseFirestore.instance.collection('chats').add({
+      'senderId': FirebaseAuth.instance.currentUser?.uid,
+      'receiverId': widget.userId,
+      'mapsUrl': googleMapsUrl,
+      'timestamp': Timestamp.now(),
+      'senderUsername': senderUsername,
+      'type': isLive ? 'live_location' : 'location',
+      'participants': [FirebaseAuth.instance.currentUser?.uid, widget.userId],
+    });
   }
 
   Future<void> _sendMedia(String mediaType) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: mediaType == 'image' ? ImageSource.gallery : ImageSource.camera,
-    );
+    XFile? pickedFile;
+
+    if (mediaType == 'image') {
+      pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    } else if (mediaType == 'video') {
+      pickedFile = await picker.pickVideo(source: ImageSource.gallery);
+    }
+
     if (pickedFile != null) {
-      final file = File(pickedFile.path); // Correctly use the File class
+      final file = File(pickedFile.path);
       final ref = FirebaseStorage.instance
           .ref()
           .child('chat_media')
           .child('${DateTime.now().toIso8601String()}_${pickedFile.name}');
-      await ref.putFile(file); // Use the file instance here
+
+      await ref.putFile(file);
       final mediaUrl = await ref.getDownloadURL();
 
       final mediaMessage = {
@@ -147,11 +250,10 @@ class _UserChatScreenState extends State<UserChatScreen> {
     }
   }
 
-  void _openLocation(double latitude, double longitude) async {
-    final url = 'https://www.google.com/maps?q=$latitude,$longitude';
-    if (await canLaunch(url)) {
-      await launch(url);
-    }
+  @override
+  void dispose() {
+    _liveLocationTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -194,6 +296,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                                   data['receiverId'] ==
                                       FirebaseAuth.instance.currentUser?.uid);
                         }).toList();
+
                     return ListView.builder(
                       itemCount: messages.length,
                       itemBuilder: (ctx, index) {
@@ -207,69 +310,56 @@ class _UserChatScreenState extends State<UserChatScreen> {
                             data['senderId'] ==
                             FirebaseAuth.instance.currentUser?.uid;
 
-                        return Align(
-                          alignment:
-                              isSender
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(
-                              vertical: 5,
-                              horizontal: 10,
-                            ),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color:
-                                  isSender
-                                      ? Colors.blue[100]
-                                      : Colors.grey[300],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  data['senderUsername'] ?? 'Unknown',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                if (data['type'] == 'location' &&
-                                    data.containsKey('latitude') &&
-                                    data.containsKey('longitude'))
-                                  GestureDetector(
-                                    onTap:
-                                        () => _openLocation(
-                                          data['latitude'],
-                                          data['longitude'],
-                                        ),
-                                    child: Text(
-                                      'Location: ${data['latitude']}, ${data['longitude']}',
-                                      style: const TextStyle(
-                                        color: Colors.blue,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  )
-                                else
+                        if (data['type'] == 'location' ||
+                            data['type'] == 'live_location') {
+                          return buildLocationMessage(data, isSender);
+                        } else {
+                          return Align(
+                            alignment:
+                                isSender
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 5,
+                                horizontal: 10,
+                              ),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color:
+                                    isSender
+                                        ? Colors.blue[100]
+                                        : Colors.grey[300],
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    data['message'] ?? 'No message',
+                                    data['senderUsername'] ?? 'Unknown',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    data['message'] ?? '',
                                     style: const TextStyle(fontSize: 14),
                                   ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  formattedTime,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.black54,
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    formattedTime,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.black54,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        }
                       },
                     );
                   },
@@ -285,7 +375,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
                         focusNode: _messageFocusNode,
                         decoration: const InputDecoration(
                           labelText: 'Type a message...',
-                          border: OutlineInputBorder(), // Add outline border
+                          border: OutlineInputBorder(),
                         ),
                         onTap: () {
                           _messageFocusNode.requestFocus();
@@ -330,6 +420,46 @@ class _UserChatScreenState extends State<UserChatScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget buildLocationMessage(Map<String, dynamic> data, bool isSender) {
+    return InkWell(
+      onTap: () => _openLocation(data['mapsUrl']),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSender ? Colors.blue[100] : Colors.grey[300],
+          borderRadius: BorderRadius.circular(10),
+        ),
+        constraints: BoxConstraints(
+          maxWidth:
+              MediaQuery.of(context).size.width * 0.2, // 70% of screen width
+        ),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              data['senderUsername'] ?? 'Unknown',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              data['type'] == 'live_location' ? 'Live Location:' : 'Location:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const Text(
+              'Tap to open in Maps',
+              style: TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,5 @@
+//signup_screen.dart
+// This file defines the SignupScreen widget, which is the signup screen for the chat application.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';

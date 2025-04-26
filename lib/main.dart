@@ -1,3 +1,6 @@
+//main.dart
+// This file defines the main entry point of the Flutter application, initializes Firebase, and sets up the app's routing and theme.
+// It includes a splash screen that is displayed on the first launch, and navigates to the login screen afterwards.
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';

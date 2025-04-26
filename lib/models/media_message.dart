@@ -1,3 +1,5 @@
+//media_message.dart
+// This file defines a MediaMessage class that represents a media message in a chat application.
 class MediaMessage {
   final String senderId;
   final String receiverId;

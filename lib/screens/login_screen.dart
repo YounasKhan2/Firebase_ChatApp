@@ -1,3 +1,6 @@
+//login_screen.dart
+// This file defines the LoginScreen widget, which is the login screen for the chat application.
+// It includes fields for email and password, a login button, and a link to the signup screen.
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_screen.dart';

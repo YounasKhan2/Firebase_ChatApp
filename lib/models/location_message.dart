@@ -1,3 +1,5 @@
+// This file defines a LocationMessage class that represents a location message in a chat application.
+// It includes properties for sender ID, receiver ID, latitude, longitude, timestamp, and sender username.
 class LocationMessage {
   final String senderId;
   final String receiverId;

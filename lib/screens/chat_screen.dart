@@ -1,3 +1,6 @@
+//chat_screen.dart
+// This file defines the ChatScreen widget, which displays a list of users available for chat in the application.
+// It includes a bottom navigation bar for navigating to the settings screen and a list of users fetched from Firestore.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
