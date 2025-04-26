@@ -28,13 +28,13 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  flutter:
+    sdk: flutter
   geolocator: ^10.0.1
   geolocator_android: ^4.6.2
   image_picker: ^0.8.7
   url_launcher: ^6.1.7
   flutter_speed_dial:
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   cloud_firestore: 
   firebase_core: 
@@ -42,6 +42,10 @@ dependencies:
   firebase_messaging:
   firebase_storage:
   shared_preferences:
+  path_provider: ^2.0.11 # Add path_provider dependency
+  dio: ^5.2.1 # Add dio dependency
+  cloudinary: ^1.2.0 # Add cloudinary dependency
+  video_player: ^2.5.1 # Add video_player dependency
 
 dev_dependencies:
   flutter_test:
