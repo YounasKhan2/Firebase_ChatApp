@@ -40,6 +40,12 @@ android {
     }
 }
 
+dependencies {
+    implementation("com.google.android.gms:play-services-auth:20.7.0")  // Google Sign-In
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))  // Firebase BoM
+    implementation("androidx.multidex:multidex:2.0.1")  // Only if needed
+}
+
 flutter {
     source = "../.."
 }

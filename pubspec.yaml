@@ -47,6 +47,7 @@ dependencies:
   cloudinary: ^1.2.0 # Ensure this dependency is added
   video_player: ^2.5.1 # Add video_player dependency
   flutter_image_compress: 2.4.0
+  google_sign_in: ^6.3.0
 
 dev_dependencies:
   flutter_test:
