@@ -435,19 +435,22 @@ class _UserChatScreenState extends State<UserChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     focusNode: _messageFocusNode,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Type a message...',
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.send, color: Colors.blue),
+                        onPressed: _sendMessage,
+                      ),
                     ),
                     onTap: () {
                       _messageFocusNode.requestFocus();
                     },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                ),
+                const SizedBox(width: 8),
                 SpeedDial(
                   animatedIcon: AnimatedIcons.menu_close,
                   backgroundColor: Colors.blue,

@@ -21,6 +21,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
+  @override
+  void initState() {
+    super.initState();
+    // Automatically navigate to ChatScreen if the user is already signed in
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacementNamed(ChatScreen.routeName);
+      });
+    }
+  }
+
   Future<void> _googleSignInHandler() async {
     try {
       debugPrint('Attempting Google Sign-In...');

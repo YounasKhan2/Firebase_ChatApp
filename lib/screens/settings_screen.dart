@@ -209,10 +209,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _signOut() async {
-    await _auth.signOut();
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (ctx) => const LoginScreen()),
+    try {
+      await _auth.signOut();
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (ctx) => const LoginScreen()),
+        );
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error signing out: ${error.toString()}')),
       );
     }
   }
@@ -251,14 +257,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context); // Define the theme variable
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'Settings',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        backgroundColor: Colors.blueAccent,
-        elevation: 4,
+        centerTitle: true,
+        backgroundColor: theme.colorScheme.primary, // Use the theme variable
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Padding(

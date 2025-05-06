@@ -1,6 +1,3 @@
-//chat_screen.dart
-// This file defines the ChatScreen widget, which displays a list of users available for chat in the application.
-// It includes a bottom navigation bar for navigating to the settings screen and a list of users fetched from Firestore.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +15,14 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   int _selectedIndex = 0;
-  String _searchQuery = ''; // Search query for filtering users
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _onItemTapped(int index) {
     if (index == 1) {
@@ -28,34 +32,80 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _clearSearch() {
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         title: const Text(
-          'Chat',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          'Conversations',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        backgroundColor: Colors.blueAccent,
-        elevation: 4,
+        centerTitle: true,
+        backgroundColor: theme.colorScheme.primary,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () => setState(() {}),
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: theme.colorScheme.primary.withOpacity(0.05),
             child: TextField(
+              controller: _searchController,
               onChanged: (value) {
                 setState(() {
                   _searchQuery = value.trim().toLowerCase();
                 });
               },
+              style: TextStyle(color: theme.colorScheme.onSurface),
               decoration: InputDecoration(
                 hintText: 'Search users...',
-                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon:
+                    _searchQuery.isNotEmpty
+                        ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: _clearSearch,
+                        )
+                        : null,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary.withOpacity(0.2),
+                    width: 1,
+                  ),
                 ),
               ),
             ),
@@ -68,6 +118,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
+
                 final users =
                     snapshot.data!.docs
                         .where((user) => user.id != currentUser?.uid)
@@ -80,74 +131,151 @@ class _ChatScreenState extends State<ChatScreen> {
                         .toList();
 
                 if (users.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No users found',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.person_search,
+                          size: 80,
+                          color: theme.colorScheme.primary.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isEmpty
+                              ? 'No users available'
+                              : 'No matching users found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 10,
-                  ),
+                return ListView.builder(
+                  padding: const EdgeInsets.only(top: 8),
                   itemCount: users.length,
-                  separatorBuilder:
-                      (ctx, index) =>
-                          const Divider(thickness: 1, color: Colors.grey),
                   itemBuilder: (ctx, index) {
                     final user = users[index];
                     final userData = user.data() as Map<String, dynamic>;
-                    return ListTile(
-                      leading: CircleAvatar(
-                        radius: 25,
-                        backgroundColor: Colors.blue[100],
-                        backgroundImage:
-                            userData.containsKey('profileImageUrl') &&
-                                    userData['profileImageUrl'] != null &&
-                                    userData['profileImageUrl'].isNotEmpty
-                                ? NetworkImage(userData['profileImageUrl'])
-                                : null,
-                        child:
-                            !userData.containsKey('profileImageUrl') ||
-                                    userData['profileImageUrl'] == null ||
-                                    userData['profileImageUrl'].isEmpty
-                                ? Text(
-                                  userData['username'][0].toUpperCase(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                                : null,
+                    final hasProfileImage =
+                        userData.containsKey('profileImageUrl') &&
+                        userData['profileImageUrl'] != null &&
+                        userData['profileImageUrl'].isNotEmpty;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
                       ),
-                      title: Text(
-                        userData['username'],
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: theme.colorScheme.outline.withOpacity(0.2),
                         ),
                       ),
-                      subtitle: Text(
-                        userData['email'],
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                      trailing: const Icon(
-                        Icons.chat,
-                        color: Colors.blueAccent,
-                      ),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder:
-                                (ctx) => UserChatScreen(
-                                  userId: user.id,
-                                  username: userData['username'],
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder:
+                                  (ctx) => UserChatScreen(
+                                    userId: user.id,
+                                    username: userData['username'],
+                                  ),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: ListTile(
+                            leading: Hero(
+                              tag: 'profile-${user.id}',
+                              child: Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient:
+                                      hasProfileImage
+                                          ? null
+                                          : LinearGradient(
+                                            colors: [
+                                              theme.colorScheme.primary,
+                                              theme.colorScheme.secondary,
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: theme.colorScheme.primary
+                                          .withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
+                                child:
+                                    hasProfileImage
+                                        ? CircleAvatar(
+                                          radius: 28,
+                                          backgroundImage: NetworkImage(
+                                            userData['profileImageUrl'],
+                                          ),
+                                        )
+                                        : Center(
+                                          child: Text(
+                                            userData['username'][0]
+                                                .toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                              ),
+                            ),
+                            title: Text(
+                              userData['username'],
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              userData['email'],
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.6,
+                                ),
+                                fontSize: 14,
+                              ),
+                            ),
+                            trailing: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withOpacity(
+                                  0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.chat_bubble_outline,
+                                color: theme.colorScheme.primary,
+                                size: 20,
+                              ),
+                            ),
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     );
                   },
                 );
@@ -156,18 +284,50 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     // You can add functionality here, like starting a new group chat
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       const SnackBar(
+      //         content: Text('Create new group chat feature coming soon!'),
+      //         behavior: SnackBarBehavior.floating,
+      //       ),
+      //     );
+      //   },
+      //   backgroundColor: theme.colorScheme.primary,
+      //   child: const Icon(Icons.add),
+      // ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble),
+              activeIcon: Icon(Icons.chat_bubble_rounded),
+              label: 'Chat',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+          elevation: 0,
+          selectedItemColor: theme.colorScheme.primary,
+          unselectedItemColor: Colors.grey,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+          type: BottomNavigationBarType.fixed,
+        ),
       ),
     );
   }
